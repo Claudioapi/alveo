@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alveo — C&C</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --honey:#D4861A;--honey-bg:#FDF3E0;--honey-mid:#F0A830;--honey-light:#FEF9F0;
+  --forest:#263D29;--forest-2:#3A5C3E;--forest-3:#537A58;--forest-bg:#EDF4EE;
+  --cream:#FAF7F2;--cream-2:#F0EAE0;--cream-3:#E5DDD2;
+  --text:#1C1C1C;--text-2:#5C5C5C;--text-3:#9A9A9A;
+  --white:#FFFFFF;
+  --danger:#B03020;--danger-bg:#FDECEA;
+  --info:#1A5FAA;--info-bg:#E8F0FA;
+  --warn:#8A5A00;--warn-bg:#FFF3DC;
+  --ok:#2A6A30;--ok-bg:#E8F4E9;
+  --purple:#5A3A8A;--purple-bg:#F0EAF8;
+  --r:12px;--rsm:8px;--rmd:10px;
+  --sh:0 2px 12px rgba(0,0,0,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;font-size:14px}
+
+/* ── SHELL ── */
+.shell{display:flex;min-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar{width:230px;background:var(--forest);flex-shrink:0;display:flex;flex-direction:column}
+.sb-logo{padding:1.25rem 1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,.1)}
+.sb-logo h1{font-family:'Playfair Display',serif;color:var(--honey-mid);font-size:22px;font-weight:400;letter-spacing:.01em}
+.sb-logo p{font-size:11px;color:rgba(255,255,255,.4);margin-top:2px;letter-spacing:.04em}
+.sb-section{padding:.75rem 1rem .25rem;font-size:10px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.09em;font-weight:500}
+.nav-item{display:flex;align-items:center;gap:9px;padding:.55rem 1.125rem;color:rgba(255,255,255,.58);font-size:13px;cursor:pointer;transition:all .13s;border-left:3px solid transparent;user-select:none}
+.nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.88)}
+.nav-item.active{background:rgba(255,255,255,.11);color:var(--honey-mid);border-left-color:var(--honey-mid)}
+.nav-icon{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+.sb-spacer{flex:1}
+.sb-version{padding:.75rem 1.25rem;font-size:10px;color:rgba(255,255,255,.2)}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{background:var(--white);border-bottom:1px solid var(--cream-2);padding:.875rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar-left{display:flex;flex-direction:column;gap:2px}
+.topbar h2{font-family:'Playfair Display',serif;font-size:17px;font-weight:400}
+.topbar-sub{font-size:11px;color:var(--text-3)}
+.content{padding:1.375rem;flex:1;overflow-y:auto}
+
+/* ── MOBILE ── */
+@media(max-width:700px){
+  .shell{flex-direction:column}
+  .sidebar{width:100%;flex-direction:column}
+  .sb-logo{padding:.75rem 1rem}
+  .sb-logo p{display:none}
+  .sb-section{display:none}
+  .nav-items-wrap{display:flex;overflow-x:auto;padding:.25rem 0}
+  .nav-item{flex-direction:column;gap:2px;padding:.45rem .75rem;font-size:10px;border-left:none;border-bottom:3px solid transparent;white-space:nowrap;flex-shrink:0}
+  .nav-item.active{border-bottom-color:var(--honey-mid);border-left-color:transparent}
+  .sb-spacer,.sb-version{display:none}
+  .content{padding:.875rem}
+  .form-grid{grid-template-columns:1fr!important}
+  .metric-row{grid-template-columns:repeat(2,1fr)!important}
+}
+
+/* ── COMPONENTS ── */
+.card{background:var(--white);border-radius:var(--r);box-shadow:var(--sh);padding:1.125rem 1.25rem;margin-bottom:.875rem}
+.card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.875rem;gap:.5rem}
+.card-title{font-size:15px;font-weight:500;line-height:1.3}
+.card-sub{font-size:12px;color:var(--text-3);margin-top:2px}
+
+.metric-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1.25rem}
+.metric{background:var(--white);border-radius:var(--r);box-shadow:var(--sh);padding:.875rem 1rem}
+.metric.accent{background:var(--honey-bg);border:1px solid rgba(212,134,26,.2)}
+.metric-label{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.3rem}
+.metric-val{font-size:24px;font-weight:300;line-height:1}
+.metric-unit{font-size:12px;font-weight:400;color:var(--text-2)}
+
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.b-ok{background:var(--ok-bg);color:var(--ok)}
+.b-warn{background:var(--warn-bg);color:var(--warn)}
+.b-danger{background:var(--danger-bg);color:var(--danger)}
+.b-info{background:var(--info-bg);color:var(--info)}
+.b-gray{background:var(--cream-2);color:var(--text-2)}
+.b-purple{background:var(--purple-bg);color:var(--purple)}
+
+.tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:20px;background:var(--forest-bg);color:var(--forest-2)}
+
+.list-row{display:flex;align-items:center;gap:.75rem;padding:.65rem 0;border-bottom:1px solid var(--cream-2)}
+.list-row:last-child{border:none;padding-bottom:0}
+.list-icon{width:34px;height:34px;border-radius:var(--rsm);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.icon-honey{background:var(--honey-bg)}
+.icon-forest{background:var(--forest-bg)}
+.icon-info{background:var(--info-bg)}
+.icon-purple{background:var(--purple-bg)}
+.list-body{flex:1;min-width:0}
+.list-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list-detail{font-size:11px;color:var(--text-2);margin-top:1px}
+
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:var(--rsm);border:1px solid var(--cream-3);background:var(--white);color:var(--text);font-size:12px;font-family:inherit;cursor:pointer;transition:all .13s;white-space:nowrap}
+.btn:hover{background:var(--cream);border-color:#C8C0B4}
+.btn-primary{background:var(--forest);color:var(--white);border-color:var(--forest)}
+.btn-primary:hover{background:var(--forest-2)}
+.btn-honey{background:var(--honey);color:var(--white);border-color:var(--honey)}
+.btn-honey:hover{background:#B87218}
+.btn-danger{color:var(--danger);border-color:transparent;background:transparent}
+.btn-danger:hover{background:var(--danger-bg)}
+.btn-sm{padding:4px 10px;font-size:11px}
+.action-row{display:flex;gap:.375rem;margin-top:.75rem;flex-wrap:wrap}
+
+.section-title{font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin:1.125rem 0 .625rem}
+.page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+.page-head h3{font-family:'Playfair Display',serif;font-size:16px;font-weight:400}
+.empty{text-align:center;padding:2rem 1rem}
+.empty-icon{font-size:30px;margin-bottom:.625rem;opacity:.45}
+.empty p{font-size:13px;color:var(--text-3);line-height:1.5}
+
+/* bar */
+.bar-group{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin:.75rem 0}
+.bar-item label{font-size:10px;color:var(--text-3);display:block;margin-bottom:3px}
+.bar-track{height:5px;background:var(--cream-2);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .4s}
+.bar-honey{background:var(--honey)}
+.bar-ok{background:#4CAF50}
+.bar-warn{background:#FF9800}
+.bar-val{font-size:11px;font-weight:500;color:var(--text-2);margin-top:2px}
+
+/* filter */
+.filter-bar{display:flex;gap:.5rem;margin-bottom:.875rem;flex-wrap:wrap}
+.filter-bar select,.filter-bar input{flex:1;min-width:110px;max-width:200px;font-size:12px;padding:6px 9px}
+
+/* forms */
+.form-row{margin-bottom:.75rem}
+label.fl{font-size:12px;color:var(--text-2);display:block;margin-bottom:3px;font-weight:500}
+input,select,textarea{width:100%;font-size:13px;font-family:inherit;padding:8px 11px;border-radius:var(--rsm);border:1px solid #DDD8D0;background:var(--cream);color:var(--text);outline:none;transition:border .13s}
+input:focus,select:focus,textarea:focus{border-color:var(--honey-mid);background:var(--white)}
+textarea{resize:vertical;min-height:64px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.form-footer{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;padding-top:.875rem;border-top:1px solid var(--cream-2)}
+.form-section{font-size:10px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin:.875rem 0 .5rem;padding-bottom:.375rem;border-bottom:1px solid var(--cream-2)}
+
+/* modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:300;align-items:flex-start;justify-content:center;padding:1.5rem 1rem;overflow-y:auto}
+.overlay.open{display:flex}
+.modal{background:var(--white);border-radius:var(--r);padding:1.375rem;width:min(500px,100%);margin:auto;box-shadow:0 8px 40px rgba(0,0,0,.22)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.125rem}
+.modal-title{font-family:'Playfair Display',serif;font-size:17px;font-weight:400}
+.close-btn{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-3);line-height:1;padding:2px;transition:color .13s}
+.close-btn:hover{color:var(--text)}
+
+/* pages */
+.page{display:none}
+.page.active{display:block}
+
+/* memo priority */
+.prio-high{border-left:3px solid var(--danger)}
+.prio-med{border-left:3px solid var(--honey)}
+.prio-low{border-left:3px solid var(--text-3)}
+.memo-done{opacity:.5}
+.memo-done .list-title{text-decoration:line-through}
+
+/* apiario pill */
+.apiario-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500}
+
+/* nucleus card accent */
+.nucleus-accent{border-left:3px solid var(--purple)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <h1>🐝 Alveo</h1>
+    <p>Cristina &amp; Claudio</p>
+  </div>
+  <div class="nav-items-wrap" id="nav-wrap">
+    <div class="sb-section">Generale</div>
+    <div class="nav-item active" data-page="dashboard" data-title="Pannello generale"><span class="nav-icon">📊</span> Pannello</div>
+    <div class="nav-item" data-page="memo" data-title="Taccuino memo"><span class="nav-icon">📝</span> Taccuino</div>
+    <div class="sb-section">Apiario</div>
+    <div class="nav-item" data-page="apiaries" data-title="I miei apiari"><span class="nav-icon">🗺</span> Apiari</div>
+    <div class="nav-item" data-page="hives" data-title="Arnie"><span class="nav-icon">🏡</span> Arnie</div>
+    <div class="nav-item" data-page="nuclei" data-title="Nuclei"><span class="nav-icon">🔬</span> Nuclei</div>
+    <div class="sb-section">Registro</div>
+    <div class="nav-item" data-page="inspections" data-title="Ispezioni"><span class="nav-icon">🔍</span> Ispezioni</div>
+    <div class="nav-item" data-page="harvests" data-title="Raccolti"><span class="nav-icon">🍯</span> Raccolti</div>
+    <div class="nav-item" data-page="treatments" data-title="Trattamenti sanitari"><span class="nav-icon">💊</span> Trattamenti</div>
+    <div class="sb-spacer"></div>
+    <div class="nav-item" data-page="export" data-title="Esporta e backup"><span class="nav-icon">💾</span> Backup</div>
+  </div>
+  <div class="sb-version">Alveo v2.0</div>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h2 id="page-title">Pannello generale</h2>
+      <div class="topbar-sub" id="topbar-date"></div>
+    </div>
+    <div id="topbar-apiario" style="font-size:12px;color:var(--text-3)"></div>
+  </div>
+  <div class="content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div id="page-dashboard" class="page active">
+      <div class="metric-row" id="metrics"></div>
+      <div class="section-title">Stato arnie — tutti gli apiari</div>
+      <div class="card"><div id="dash-hives"></div></div>
+      <div class="section-title">Memo urgenti / in sospeso</div>
+      <div id="dash-memo"></div>
+      <div class="section-title">Ultime attività</div>
+      <div class="card"><div id="dash-activity"></div></div>
+    </div>
+
+    <!-- ══ MEMO ══ -->
+    <div id="page-memo" class="page">
+      <div class="page-head">
+        <h3>Taccuino memo</h3>
+        <button class="btn btn-primary" onclick="openModal('memo')">+ Nuovo memo</button>
+      </div>
+      <div class="filter-bar">
+        <select id="filter-memo-status" onchange="renderMemo()">
+          <option value="">Tutti</option><option value="open">Da fare</option><option value="done">Completati</option>
+        </select>
+        <select id="filter-memo-prio" onchange="renderMemo()">
+          <option value="">Tutte le priorità</option><option value="alta">Alta</option><option value="media">Media</option><option value="bassa">Bassa</option>
+        </select>
+        <select id="filter-memo-apiario" onchange="renderMemo()">
+          <option value="">Tutti gli apiari</option>
+        </select>
+      </div>
+      <div id="memo-list"></div>
+    </div>
+
+    <!-- ══ APIARI ══ -->
+    <div id="page-apiaries" class="page">
+      <div class="page-head">
+        <h3>I miei apiari</h3>
+        <button class="btn btn-primary" onclick="openModal('apiario')">+ Nuovo apiario</button>
+      </div>
+      <div id="apiaries-list"></div>
+    </div>
+
+    <!-- ══ ARNIE ══ -->
+    <div id="page-hives" class="page">
+      <div class="page-head">
+        <h3>Arnie</h3>
+        <button class="btn btn-primary" onclick="openModal('hive')">+ Nuova arnia</button>
+      </div>
+      <div class="filter-bar">
+        <select id="filter-hive-apiario" onchange="renderHives()"><option value="">Tutti gli apiari</option></select>
+        <select id="filter-hive-status" onchange="renderHives()"><option value="">Tutti gli stati</option><option>Attiva</option><option>Debole</option><option>Sciamata</option><option>In nucleo</option><option>Morta</option></select>
+      </div>
+      <div id="hives-list"></div>
+    </div>
+
+    <!-- ══ NUCLEI ══ -->
+    <div id="page-nuclei" class="page">
+      <div class="page-head">
+        <h3>Nuclei</h3>
+        <button class="btn btn-primary" onclick="openModal('nucleus')">+ Nuovo nucleo</button>
+      </div>
+      <div id="nuclei-list"></div>
+    </div>
+
+    <!-- ══ ISPEZIONI ══ -->
+    <div id="page-inspections" class="page">
+      <div class="page-head">
+        <h3>Ispezioni</h3>
+        <button class="btn btn-primary" onclick="openModal('inspection')">+ Nuova ispezione</button>
+      </div>
+      <div class="filter-bar">
+        <select id="filter-insp-apiario" onchange="renderInspections()"><option value="">Tutti gli apiari</option></select>
+        <select id="filter-insp-hive" onchange="renderInspections()"><option value="">Tutte le arnie</option></select>
+      </div>
+      <div id="inspections-list"></div>
+    </div>
+
+    <!-- ══ RACCOLTI ══ -->
+    <div id="page-harvests" class="page">
+      <div class="page-head">
+        <h3>Raccolti</h3>
+        <button class="btn btn-primary" onclick="openModal('harvest')">+ Nuovo raccolto</button>
+      </div>
+      <div class="filter-bar">
+        <select id="filter-harv-apiario" onchange="renderHarvests()"><option value="">Tutti gli apiari</option></select>
+      </div>
+      <div id="harvests-list"></div>
+    </div>
+
+    <!-- ══ TRATTAMENTI ══ -->
+    <div id="page-treatments" class="page">
+      <div class="page-head">
+        <h3>Trattamenti sanitari</h3>
+        <button class="btn btn-primary" onclick="openModal('treatment')">+ Nuovo trattamento</button>
+      </div>
+      <div class="filter-bar">
+        <select id="filter-treat-apiario" onchange="renderTreatments()"><option value="">Tutti gli apiari</option></select>
+      </div>
+      <div id="treatments-list"></div>
+    </div>
+
+    <!-- ══ EXPORT ══ -->
+    <div id="page-export" class="page">
+      <div class="card" style="max-width:460px">
+        <div class="card-header"><span class="card-title">Backup e ripristino</span></div>
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:1rem;line-height:1.65">I dati sono salvati nel browser (localStorage). Esporta un backup JSON periodicamente — apribile su qualsiasi dispositivo.</p>
+        <div class="action-row" style="margin-top:0">
+          <button class="btn btn-honey" onclick="exportData()">⬇ Scarica JSON</button>
+          <label class="btn" style="cursor:pointer">⬆ Importa JSON <input type="file" accept=".json" style="display:none" onchange="importData(event)"></label>
+        </div>
+        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--cream-2)">
+          <p style="font-size:13px;color:var(--text-2);margin-bottom:.625rem">Esporta registro completo in CSV (Excel):</p>
+          <button class="btn" onclick="exportCSV()">⬇ Esporta CSV</button>
+        </div>
+        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--cream-2)">
+          <p style="font-size:11px;color:var(--text-3);margin-bottom:.5rem">⚠ Operazione irreversibile</p>
+          <button class="btn btn-danger btn-sm" onclick="clearData()">Cancella tutti i dati</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<!-- ══ MODALS ══ -->
+
+<!-- APIARIO -->
+<div class="overlay" id="modal-apiario">
+<div class="modal">
+  <div class="modal-head"><span class="modal-title" id="modal-apiario-title">Nuovo apiario</span><button class="close-btn" onclick="closeModal('apiario')">✕</button></div>
+  <div class="form-row"><label class="fl">Nome apiario *</label><input id="ap-name" placeholder="es. Apiario del bosco"></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Località</label><input id="ap-loc" placeholder="es. Valcamonica"></div>
+    <div class="form-row"><label class="fl">Quota (m)</label><input id="ap-altitude" type="number" placeholder="es. 450"></div>
+  </div>
+  <div class="form-row"><label class="fl">Coordinate GPS (opzionale)</label><input id="ap-gps" placeholder="es. 45.123, 10.456"></div>
+  <div class="form-row"><label class="fl">Flora predominante</label><input id="ap-flora" placeholder="es. Acacia, castagno, prato…"></div>
+  <div class="form-row"><label class="fl">Note</label><textarea id="ap-notes" placeholder="Accesso, microclima, note generali…"></textarea></div>
+  <div class="form-footer">
+    <button class="btn" onclick="closeModal('apiario')">Annulla</button>
+    <button class="btn btn-primary" id="ap-save-btn" onclick="saveApiario()">Salva apiario</button>
+  </div>
+</div>
+</div>
+
+<!-- MEMO -->
+<div class="overlay" id="modal-memo">
+<div class="modal">
+  <div class="modal-head"><span class="modal-title">Nuovo memo</span><button class="close-btn" onclick="closeModal('memo')">✕</button></div>
+  <div class="form-row"><label class="fl">Testo del memo *</label><textarea id="mm-text" placeholder="Cosa devi ricordare o fare?"></textarea></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Priorità</label>
+      <select id="mm-prio"><option value="alta">🔴 Alta</option><option value="media" selected>🟡 Media</option><option value="bassa">⚪ Bassa</option></select>
+    </div>
+    <div class="form-row"><label class="fl">Scadenza (opzionale)</label><input id="mm-due" type="date"></div>
+  </div>
+  <div class="form-section">Collegamento (opzionale)</div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Apiario</label><select id="mm-apiario"><option value="">— nessuno —</option></select></div>
+    <div class="form-row"><label class="fl">Arnia specifica</label><select id="mm-hive"><option value="">— nessuna —</option></select></div>
+  </div>
+  <div class="form-row"><label class="fl">Categoria</label>
+    <select id="mm-cat"><option value="">Generico</option><option>Trattamento</option><option>Acquisto</option><option>Ispezione</option><option>Raccolta</option><option>Manutenzione</option><option>Altro</option></select>
+  </div>
+  <div class="form-footer">
+    <button class="btn" onclick="closeModal('memo')">Annulla</button>
+    <button class="btn btn-primary" onclick="saveMemo()">Salva memo</button>
+  </div>
+</div>
+</div>
+
+<!-- ARNIA -->
+<div class="overlay" id="modal-hive">
+<div class="modal">
+  <div class="modal-head"><span class="modal-title" id="modal-hive-title">Nuova arnia</span><button class="close-btn" onclick="closeModal('hive')">✕</button></div>
+  <div class="form-row"><label class="fl">Nome / numero arnia *</label><input id="h-name" placeholder="es. Arnia 3"></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Apiario *</label><select id="h-apiario"></select></div>
+    <div class="form-row"><label class="fl">Stato</label>
+      <select id="h-status"><option>Attiva</option><option>Debole</option><option>Sciamata</option><option>In nucleo</option><option>Morta</option></select>
+    </div>
+  </div>
+  <div class="form-section">Regina</div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Anno introduzione</label><input id="h-qyear" type="number" min="2010" max="2035" placeholder="es. 2023"></div>
+    <div class="form-row"><label class="fl">Razza</label><input id="h-qrace" placeholder="es. Ligustica, Carnica…"></div>
+  </div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Provenienza regina</label>
+      <select id="h-qsource"><option value="">—</option><option>Allevata</option><option>Acquistata</option><option>Da sciame</option><option>Da nucleo</option></select>
+    </div>
+    <div class="form-row"><label class="fl">Colore marcatura</label>
+      <select id="h-qcolor"><option value="">— non marcata —</option><option>Bianco (1,6)</option><option>Giallo (2,7)</option><option>Rosso (3,8)</option><option>Verde (4,9)</option><option>Blu (5,0)</option></select>
+    </div>
+  </div>
+  <div class="form-row"><label class="fl">Note</label><textarea id="h-notes" placeholder="Temperamento, posizione, osservazioni…"></textarea></div>
+  <div class="form-footer">
+    <button class="btn" onclick="closeModal('hive')">Annulla</button>
+    <button class="btn btn-primary" id="h-save-btn" onclick="saveHive()">Salva arnia</button>
+  </div>
+</div>
+</div>
+
+<!-- NUCLEO -->
+<div class="overlay" id="modal-nucleus">
+<div class="modal">
+  <div class="modal-head"><span class="modal-title">Nuovo nucleo</span><button class="close-btn" onclick="closeModal('nucleus')">✕</button></div>
+  <div class="form-row"><label class="fl">Nome / codice nucleo *</label><input id="nu-name" placeholder="es. Nuc-01 o Nucleo Giugno 2025"></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Data formazione *</label><input id="nu-date" type="date"></div>
+    <div class="form-row"><label class="fl">Destinazione (apiario)</label><select id="nu-apiario"><option value="">—</option></select></div>
+  </div>
+  <div class="form-section">Arnia madre (origine)</div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Arnia madre</label><select id="nu-mother"><option value="">— non specificata —</option></select></div>
+    <div class="form-row"><label class="fl">N° favi prelevati</label><input id="nu-frames" type="number" min="0" placeholder="es. 4"></div>
+  </div>
+  <div class="form-section">Regina del nucleo</div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Provenienza regina</label>
+      <select id="nu-qsource"><option value="">—</option><option>Cella reale da arnia madre</option><option>Regina allevata</option><option>Regina acquistata</option><option>Orfano — alleva da sola</option></select>
+    </div>
+    <div class="form-row"><label class="fl">Razza regina</label><input id="nu-qrace" placeholder="es. Ligustica"></div>
+  </div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Scorte favi (miele)</label>
+      <select id="nu-foodframes"><option value="">—</option><option>0 — nessuno</option><option>1 — parziale</option><option>2 — sufficiente</option><option>3+ — abbondante</option></select>
+    </div>
+    <div class="form-row"><label class="fl">Stato attuale</label>
+      <select id="nu-status"><option>In formazione</option><option>Attivo</option><option>Promosso ad arnia</option><option>Disperso</option></select>
+    </div>
+  </div>
+  <div class="form-row"><label class="fl">Note</label><textarea id="nu-notes" placeholder="Condizioni alla formazione, sviluppo, problemi…"></textarea></div>
+  <div class="form-footer">
+    <button class="btn" onclick="closeModal('nucleus')">Annulla</button>
+    <button class="btn btn-primary" onclick="saveNucleus()">Salva nucleo</button>
+  </div>
+</div>
+</div>
+
+<!-- ISPEZIONE -->
+<div class="overlay" id="modal-inspection">
+<div class="modal">
+  <div class="modal-head"><span class="modal-title">Nuova ispezione</span><button class="close-btn" onclick="closeModal('inspection')">✕</button></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Apiario</label><select id="i-apiario" onchange="filterHivesForInspection()"><option value="">Tutti</option></select></div>
+    <div class="form-row"><label class="fl">Arnia *</label><select id="i-hive"></select></div>
+  </div>
+  <div class="form-row"><label class="fl">Data *</label><input id="i-date" type="date"></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Forza famiglia (1–5)</label>
+      <select id="i-pop"><option value="1">1 — scarsa</option><option value="2">2 — bassa</option><option value="3" selected>3 — media</option><option value="4">4 — buona</option><option value="5">5 — ottima</option></select>
+    </div>
+    <div class="form-row"><label class="fl">Covata (1–5)</label>
+      <select id="i-brood"><option value="1">1 — scarsa</option><option value="2">2 — bassa</option><option value="3" selected>3 — media</option><option value="4">4 — buona</option><option value="5">5 — ottima</option></select>
+    </div>
+  </div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Scorte (1–5)</label>
+      <select id="i-food"><option value="1">1 — vuote</option><option value="2">2 — scarse</option><option value="3" selected>3 — suff.</option><option value="4">4 — buone</option><option value="5">5 — abbondanti</option></select>
+    </div>
+    <div class="form-row"><label class="fl">Regina</label>
+      <select id="i-queen"><option>Vista</option><option>Non vista</option><option>Uova presenti</option><option>Celle reali</option><option>Sciame in corso</option></select>
+    </div>
+  </div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Temperamento</label>
+      <select id="i-temp"><option>Calmo</option><option>Leggermente nervoso</option><option>Nervoso</option><option>Aggressivo</option></select>
+    </div>
+    <div class="form-row"><label class="fl">Varroa % (su 100 api)</label><input id="i-varroa" type="number" min="0" max="100" step="0.1" placeholder="es. 1.5"></div>
+  </div>
+  <div class="form-row"><label class="fl">Note</label><textarea id="i-notes" placeholder="Anomalie, interventi, cosa fare al prossimo controllo…"></textarea></div>
+  <div class="form-footer">
+    <button class="btn" onclick="closeModal('inspection')">Annulla</button>
+    <button class="btn btn-primary" onclick="saveInspection()">Salva</button>
+  </div>
+</div>
+</div>
+
+<!-- RACCOLTO -->
+<div class="overlay" id="modal-harvest">
+<div class="modal">
+  <div class="modal-head"><span class="modal-title">Nuovo raccolto</span><button class="close-btn" onclick="closeModal('harvest')">✕</button></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Apiario</label><select id="rv-apiario" onchange="filterHivesForHarvest()"><option value="">Tutti</option></select></div>
+    <div class="form-row"><label class="fl">Arnia *</label><select id="rv-hive"></select></div>
+  </div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Data *</label><input id="rv-date" type="date"></div>
+    <div class="form-row"><label class="fl">Tipo miele</label><input id="rv-type" placeholder="es. Acacia, Millefiori…"></div>
+  </div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Quantità (kg) *</label><input id="rv-qty" type="number" min="0" step="0.1"></div>
+    <div class="form-row"><label class="fl">N° melari</label><input id="rv-supers" type="number" min="0" placeholder="es. 2"></div>
+  </div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Umidità % (rifrattometro)</label><input id="rv-humidity" type="number" min="0" max="30" step="0.1" placeholder="es. 17.5"></div>
+    <div class="form-row"><label class="fl">Destinazione</label>
+      <select id="rv-dest"><option value="">—</option><option>Consumo proprio</option><option>Vendita</option><option>Regalo</option><option>Smielatura esterna</option></select>
+    </div>
+  </div>
+  <div class="form-row"><label class="fl">Note</label><textarea id="rv-notes" placeholder="Colore, consistenza, note di smielatura…"></textarea></div>
+  <div class="form-footer">
+    <button class="btn" onclick="closeModal('harvest')">Annulla</button>
+    <button class="btn btn-primary" onclick="saveHarvest()">Salva</button>
+  </div>
+</div>
+</div>
+
+<!-- TRATTAMENTO -->
+<div class="overlay" id="modal-treatment">
+<div class="modal">
+  <div class="modal-head"><span class="modal-title">Nuovo trattamento</span><button class="close-btn" onclick="closeModal('treatment')">✕</button></div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Arnia / ambito</label><select id="t-hive"></select></div>
+    <div class="form-row"><label class="fl">Data inizio *</label><input id="t-date" type="date"></div>
+  </div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Prodotto *</label><input id="t-product" placeholder="es. Apibioxal, Apiguard…"></div>
+    <div class="form-row"><label class="fl">Tipo</label>
+      <select id="t-type"><option>Varroa</option><option>Nosema</option><option>Nutrizione</option><option>Profilattico</option><option>Altro</option></select>
+    </div>
+  </div>
+  <div class="form-grid">
+    <div class="form-row"><label class="fl">Dosaggio</label><input id="t-dose" placeholder="es. 2 ml/arnia"></div>
+    <div class="form-row"><label class="fl">Data fine</label><input id="t-end" type="date"></div>
+  </div>
+  <div class="form-row"><label class="fl">Note / risultati</label><textarea id="t-notes" placeholder="Metodo, reazione api, caduta varroa misurata…"></textarea></div>
+  <div class="form-footer">
+    <button class="btn" onclick="closeModal('treatment')">Annulla</button>
+    <button class="btn btn-primary" onclick="saveTreatment()">Salva</button>
+  </div>
+</div>
+</div>
+
+<script>
+// ══ DATA ══════════════════════════════════════════════════════════
+let db = JSON.parse(localStorage.getItem('alveo_v2')||'null') || {
+  apiaries:[],hives:[],nuclei:[],inspections:[],harvests:[],treatments:[],memos:[]
+};
+function save(){localStorage.setItem('alveo_v2',JSON.stringify(db))}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
+function today(){return new Date().toISOString().slice(0,10)}
+function fmtDate(d){if(!d)return '—';const[y,m,g]=d.split('-');return`${g}/${m}/${y}`}
+function qAge(y){return y?(new Date().getFullYear()-+y)+' anni':'—'}
+
+// ══ NAV ═══════════════════════════════════════════════════════════
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+    const p=el.dataset.page;
+    document.getElementById('page-'+p).classList.add('active');
+    document.getElementById('page-title').textContent=el.dataset.title;
+    populateAllFilters();
+    render();
+  });
+});
+
+document.getElementById('topbar-date').textContent=
+  new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+// ══ MODAL HELPERS ═════════════════════════════════════════════════
+function openModal(type){
+  const el=document.getElementById('modal-'+type);
+  if(!el)return;
+  el.classList.add('open');
+  populateModalSelects(type);
+}
+function closeModal(type){document.getElementById('modal-'+type).classList.remove('open')}
+document.querySelectorAll('.overlay').forEach(o=>{
+  o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')})
+});
+
+function populateModalSelects(type){
+  const apOpt=()=>'<option value="">— nessuno —</option>'+db.apiaries.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+  const hiveOpt=(includeAll)=>(includeAll?'<option value="__all__">Tutte le arnie</option>':'')+db.hives.map(h=>`<option value="${h.id}">${h.name} (${apiaryName(h.apiario)})</option>`).join('');
+  if(type==='memo'){
+    document.getElementById('mm-apiario').innerHTML=apOpt();
+    document.getElementById('mm-hive').innerHTML='<option value="">— nessuna —</option>'+db.hives.map(h=>`<option value="${h.id}">${h.name}</option>`).join('');
+    document.getElementById('mm-apiario').onchange=function(){
+      const aid=this.value;
+      const filtered=aid?db.hives.filter(h=>h.apiario===aid):db.hives;
+      document.getElementById('mm-hive').innerHTML='<option value="">— nessuna —</option>'+filtered.map(h=>`<option value="${h.id}">${h.name}</option>`).join('');
+    };
+  }
+  if(type==='hive'){
+    document.getElementById('h-apiario').innerHTML=db.apiaries.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+  }
+  if(type==='nucleus'){
+    document.getElementById('nu-apiario').innerHTML=apOpt();
+    document.getElementById('nu-mother').innerHTML='<option value="">— non specificata —</option>'+db.hives.map(h=>`<option value="${h.id}">${h.name} (${apiaryName(h.apiario)})</option>`).join('');
+    document.getElementById('nu-date').value=today();
+  }
+  if(type==='inspection'){
+    document.getElementById('i-apiario').innerHTML='<option value="">Tutti</option>'+db.apiaries.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+    document.getElementById('i-hive').innerHTML=db.hives.map(h=>`<option value="${h.id}">${h.name} (${apiaryName(h.apiario)})</option>`).join('');
+    document.getElementById('i-date').value=today();
+  }
+  if(type==='harvest'){
+    document.getElementById('rv-apiario').innerHTML='<option value="">Tutti</option>'+db.apiaries.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+    document.getElementById('rv-hive').innerHTML=db.hives.map(h=>`<option value="${h.id}">${h.name} (${apiaryName(h.apiario)})</option>`).join('');
+    document.getElementById('rv-date').value=today();
+  }
+  if(type==='treatment'){
+    document.getElementById('t-hive').innerHTML='<option value="__all__">Tutte le arnie</option>'+
+      db.apiaries.map(a=>`<option value="__ap__${a.id}">🗺 ${a.name} (tutto l\'apiario)</option>`).join('')+
+      db.hives.map(h=>`<option value="${h.id}">${h.name} (${apiaryName(h.apiario)})</option>`).join('');
+    document.getElementById('t-date').value=today();
+  }
+}
+
+function filterHivesForInspection(){
+  const aid=document.getElementById('i-apiario').value;
+  const filtered=aid?db.hives.filter(h=>h.apiario===aid):db.hives;
+  document.getElementById('i-hive').innerHTML=filtered.map(h=>`<option value="${h.id}">${h.name}</option>`).join('');
+}
+function filterHivesForHarvest(){
+  const aid=document.getElementById('rv-apiario').value;
+  const filtered=aid?db.hives.filter(h=>h.apiario===aid):db.hives;
+  document.getElementById('rv-hive').innerHTML=filtered.map(h=>`<option value="${h.id}">${h.name}</option>`).join('');
+}
+
+// ══ POPULATE FILTERS ══════════════════════════════════════════════
+function populateAllFilters(){
+  const apOpts='<option value="">Tutti gli apiari</option>'+db.apiaries.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+  ['filter-memo-apiario','filter-hive-apiario','filter-insp-apiario','filter-harv-apiario','filter-treat-apiario'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.innerHTML=apOpts;
+  });
+  // insp hive filter
+  const fih=document.getElementById('filter-insp-hive');
+  if(fih)fih.innerHTML='<option value="">Tutte le arnie</option>'+db.hives.map(h=>`<option value="${h.id}">${h.name}</option>`).join('');
+  // apiario filter updates hives for inspection
+  const fia=document.getElementById('filter-insp-apiario');
+  if(fia)fia.onchange=function(){
+    const aid=this.value;
+    const filtered=aid?db.hives.filter(h=>h.apiario===aid):db.hives;
+    document.getElementById('filter-insp-hive').innerHTML='<option value="">Tutte le arnie</option>'+filtered.map(h=>`<option value="${h.id}">${h.name}</option>`).join('');
+    renderInspections();
+  };
+}
+
+// ══ HELPERS ═══════════════════════════════════════════════════════
+function apiaryName(id){const a=db.apiaries.find(x=>x.id===id);return a?a.name:'—'}
+function hiveName(id){
+  if(!id)return '—';
+  if(id==='__all__')return 'Tutte le arnie';
+  if(id.startsWith('__ap__'))return '🗺 '+apiaryName(id.replace('__ap__',''));
+  const h=db.hives.find(x=>x.id===id);return h?h.name:'—';
+}
+function statusBadge(s){
+  const m={Attiva:'b-ok',Debole:'b-warn',Sciamata:'b-warn','In nucleo':'b-info',Morta:'b-danger','In formazione':'b-purple',Attivo:'b-ok','Promosso ad arnia':'b-info',Disperso:'b-danger'};
+  return `<span class="badge ${m[s]||'b-gray'}">${s}</span>`;
+}
+function apiaryPill(id){
+  if(!id)return '';
+  const a=db.apiaries.find(x=>x.id===id);
+  if(!a)return '';
+  return `<span class="tag">🗺 ${a.name}</span>`;
+}
+function prioBadge(p){const m={alta:'b-danger',media:'b-warn',bassa:'b-gray'};return`<span class="badge ${m[p]||'b-gray'}">${p}</span>`}
+
+// ══ SAVE ══════════════════════════════════════════════════════════
+let _editId={};
+
+function saveApiario(){
+  const name=document.getElementById('ap-name').value.trim();
+  if(!name){alert('Inserisci il nome dell\'apiario');return}
+  const id=_editId.apiario;
+  if(id){
+    const a=db.apiaries.find(x=>x.id===id);
+    Object.assign(a,{name,loc:document.getElementById('ap-loc').value.trim(),altitude:document.getElementById('ap-altitude').value,gps:document.getElementById('ap-gps').value.trim(),flora:document.getElementById('ap-flora').value.trim(),notes:document.getElementById('ap-notes').value.trim()});
+    _editId.apiario=null;
+    document.getElementById('modal-apiario-title').textContent='Nuovo apiario';
+    document.getElementById('ap-save-btn').textContent='Salva apiario';
+    document.getElementById('ap-save-btn').onclick=saveApiario;
+  } else {
+    db.apiaries.push({id:uid(),name,loc:document.getElementById('ap-loc').value.trim(),altitude:document.getElementById('ap-altitude').value,gps:document.getElementById('ap-gps').value.trim(),flora:document.getElementById('ap-flora').value.trim(),notes:document.getElementById('ap-notes').value.trim(),created:today()});
+  }
+  save();closeModal('apiario');clearForm(['ap-name','ap-loc','ap-altitude','ap-gps','ap-flora','ap-notes']);render();populateAllFilters();
+}
+
+function saveMemo(){
+  const text=document.getElementById('mm-text').value.trim();
+  if(!text){alert('Scrivi il testo del memo');return}
+  db.memos.push({id:uid(),text,prio:document.getElementById('mm-prio').value,due:document.getElementById('mm-due').value,apiario:document.getElementById('mm-apiario').value,hive:document.getElementById('mm-hive').value,cat:document.getElementById('mm-cat').value,status:'open',created:today()});
+  save();closeModal('memo');clearForm(['mm-text','mm-due']);render();
+}
+
+function saveHive(){
+  const name=document.getElementById('h-name').value.trim();
+  const apiario=document.getElementById('h-apiario').value;
+  if(!name){alert('Inserisci il nome dell\'arnia');return}
+  if(!apiario&&db.apiaries.length>0){alert('Seleziona un apiario');return}
+  const id=_editId.hive;
+  if(id){
+    const h=db.hives.find(x=>x.id===id);
+    Object.assign(h,{name,apiario,status:document.getElementById('h-status').value,qyear:document.getElementById('h-qyear').value,qrace:document.getElementById('h-qrace').value.trim(),qsource:document.getElementById('h-qsource').value,qcolor:document.getElementById('h-qcolor').value,notes:document.getElementById('h-notes').value.trim()});
+    _editId.hive=null;
+    document.getElementById('modal-hive-title').textContent='Nuova arnia';
+    document.getElementById('h-save-btn').textContent='Salva arnia';
+    document.getElementById('h-save-btn').onclick=saveHive;
+  } else {
+    db.hives.push({id:uid(),name,apiario,status:document.getElementById('h-status').value,qyear:document.getElementById('h-qyear').value,qrace:document.getElementById('h-qrace').value.trim(),qsource:document.getElementById('h-qsource').value,qcolor:document.getElementById('h-qcolor').value,notes:document.getElementById('h-notes').value.trim(),created:today()});
+  }
+  save();closeModal('hive');clearForm(['h-name','h-qyear','h-qrace','h-notes']);render();
+}
+
+function saveNucleus(){
+  const name=document.getElementById('nu-name').value.trim();
+  const date=document.getElementById('nu-date').value;
+  if(!name||!date){alert('Inserisci nome e data formazione');return}
+  db.nuclei.push({id:uid(),name,date,apiario:document.getElementById('nu-apiario').value,mother:document.getElementById('nu-mother').value,frames:document.getElementById('nu-frames').value,qsource:document.getElementById('nu-qsource').value,qrace:document.getElementById('nu-qrace').value.trim(),foodframes:document.getElementById('nu-foodframes').value,status:document.getElementById('nu-status').value,notes:document.getElementById('nu-notes').value.trim()});
+  save();closeModal('nucleus');clearForm(['nu-name','nu-frames','nu-qrace','nu-notes']);render();
+}
+
+function saveInspection(){
+  const hive=document.getElementById('i-hive').value;
+  const date=document.getElementById('i-date').value;
+  if(!hive||!date){alert('Seleziona arnia e data');return}
+  db.inspections.push({id:uid(),hive,date,pop:+document.getElementById('i-pop').value,brood:+document.getElementById('i-brood').value,food:+document.getElementById('i-food').value,queen:document.getElementById('i-queen').value,temp:document.getElementById('i-temp').value,varroa:document.getElementById('i-varroa').value,notes:document.getElementById('i-notes').value.trim()});
+  save();closeModal('inspection');clearForm(['i-notes','i-varroa']);render();
+}
+
+function saveHarvest(){
+  const qty=parseFloat(document.getElementById('rv-qty').value);
+  if(!qty||qty<=0){alert('Inserisci la quantità raccolta');return}
+  db.harvests.push({id:uid(),hive:document.getElementById('rv-hive').value,date:document.getElementById('rv-date').value,qty,type:document.getElementById('rv-type').value.trim(),supers:document.getElementById('rv-supers').value,humidity:document.getElementById('rv-humidity').value,dest:document.getElementById('rv-dest').value,notes:document.getElementById('rv-notes').value.trim()});
+  save();closeModal('harvest');clearForm(['rv-qty','rv-type','rv-supers','rv-humidity','rv-notes']);render();
+}
+
+function saveTreatment(){
+  const prod=document.getElementById('t-product').value.trim();
+  if(!prod){alert('Inserisci il prodotto');return}
+  db.treatments.push({id:uid(),hive:document.getElementById('t-hive').value,date:document.getElementById('t-date').value,end:document.getElementById('t-end').value,product:prod,type:document.getElementById('t-type').value,dose:document.getElementById('t-dose').value.trim(),notes:document.getElementById('t-notes').value.trim()});
+  save();closeModal('treatment');clearForm(['t-product','t-dose','t-notes','t-end']);render();
+}
+
+function clearForm(ids){ids.forEach(id=>{const el=document.getElementById(id);if(el)el.value=''})}
+function deleteItem(arr,id){if(!confirm('Eliminare questo record?'))return;db[arr]=db[arr].filter(x=>x.id!==id);save();render()}
+function toggleMemo(id){const m=db.memos.find(x=>x.id===id);if(m){m.status=m.status==='done'?'open':'done';save();render()}}
+
+// ══ EDIT HELPERS ══════════════════════════════════════════════════
+function editApiario(id){
+  const a=db.apiaries.find(x=>x.id===id);if(!a)return;
+  _editId.apiario=id;
+  openModal('apiario');
+  setTimeout(()=>{
+    document.getElementById('ap-name').value=a.name||'';
+    document.getElementById('ap-loc').value=a.loc||'';
+    document.getElementById('ap-altitude').value=a.altitude||'';
+    document.getElementById('ap-gps').value=a.gps||'';
+    document.getElementById('ap-flora').value=a.flora||'';
+    document.getElementById('ap-notes').value=a.notes||'';
+    document.getElementById('modal-apiario-title').textContent='Modifica apiario';
+    document.getElementById('ap-save-btn').textContent='Aggiorna';
+  },50);
+}
+
+function editHive(id){
+  const h=db.hives.find(x=>x.id===id);if(!h)return;
+  _editId.hive=id;
+  openModal('hive');
+  setTimeout(()=>{
+    document.getElementById('h-name').value=h.name||'';
+    document.getElementById('h-apiario').value=h.apiario||'';
+    document.getElementById('h-status').value=h.status||'Attiva';
+    document.getElementById('h-qyear').value=h.qyear||'';
+    document.getElementById('h-qrace').value=h.qrace||'';
+    document.getElementById('h-qsource').value=h.qsource||'';
+    document.getElementById('h-qcolor').value=h.qcolor||'';
+    document.getElementById('h-notes').value=h.notes||'';
+    document.getElementById('modal-hive-title').textContent='Modifica arnia';
+    document.getElementById('h-save-btn').textContent='Aggiorna';
+  },50);
+}
+
+// ══ RENDER ════════════════════════════════════════════════════════
+function render(){renderDashboard();renderMemo();renderApiaries();renderHives();renderNuclei();renderInspections();renderHarvests();renderTreatments()}
+
+function renderDashboard(){
+  const totalKg=db.harvests.reduce((a,b)=>a+b.qty,0);
+  const active=db.hives.filter(h=>h.status==='Attiva').length;
+  const openMemos=db.memos.filter(m=>m.status==='open').length;
+  document.getElementById('metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Apiari</div><div class="metric-val">${db.apiaries.length}</div></div>
+    <div class="metric"><div class="metric-label">Arnie attive</div><div class="metric-val">${active}<span class="metric-unit"> / ${db.hives.length}</span></div></div>
+    <div class="metric accent"><div class="metric-label">Miele totale</div><div class="metric-val">${totalKg.toFixed(1)}<span class="metric-unit"> kg</span></div></div>
+    <div class="metric"><div class="metric-label">Nuclei attivi</div><div class="metric-val">${db.nuclei.filter(n=>n.status==='Attivo'||n.status==='In formazione').length}</div></div>
+    <div class="metric"><div class="metric-label">Memo aperti</div><div class="metric-val">${openMemos}</div></div>`;
+
+  // hives list
+  if(db.hives.length===0){
+    document.getElementById('dash-hives').innerHTML='<div class="empty"><div class="empty-icon">🏡</div><p>Nessuna arnia. Aggiungi un apiario e le arnie per iniziare.</p></div>';
+  } else {
+    document.getElementById('dash-hives').innerHTML=db.hives.slice(0,8).map(h=>{
+      const li=db.inspections.filter(i=>i.hive===h.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
+      const kg=db.harvests.filter(rv=>rv.hive===h.id).reduce((a,b)=>a+b.qty,0);
+      return`<div class="list-row">
+        <div class="list-icon icon-honey">🐝</div>
+        <div class="list-body">
+          <div class="list-title">${h.name} ${apiaryPill(h.apiario)}</div>
+          <div class="list-detail">Ultima ispezione: ${li?fmtDate(li.date):'mai'} · ${kg.toFixed(1)} kg raccolti</div>
+        </div>
+        ${statusBadge(h.status)}
+      </div>`;
+    }).join('');
+  }
+
+  // urgent memos
+  const urgent=db.memos.filter(m=>m.status==='open'&&m.prio==='alta').slice(0,3);
+  document.getElementById('dash-memo').innerHTML=urgent.length
+    ?urgent.map(m=>`<div class="card prio-high" style="margin-bottom:.5rem">
+        <div style="display:flex;align-items:flex-start;gap:.75rem;justify-content:space-between">
+          <div>
+            <div style="font-size:13px;font-weight:500">${m.text}</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:3px">${m.due?'Scadenza: '+fmtDate(m.due):''}${m.cat?' · '+m.cat:''}${m.hive?' · '+hiveName(m.hive):m.apiario?' · '+apiaryName(m.apiario):''}</div>
+          </div>
+          <button class="btn btn-sm" onclick="toggleMemo('${m.id}')">✓ Fatto</button>
+        </div>
+      </div>`).join('')
+    :'<div class="card" style="font-size:13px;color:var(--text-3);text-align:center;padding:.875rem">Nessun memo urgente in sospeso 🎉</div>';
+
+  // activity
+  const acts=[
+    ...db.inspections.map(x=>({date:x.date,ico:'🔍',text:`Ispezione — ${hiveName(x.hive)}`})),
+    ...db.harvests.map(x=>({date:x.date,ico:'🍯',text:`Raccolto ${x.qty.toFixed(1)} kg ${x.type||''} — ${hiveName(x.hive)}`})),
+    ...db.treatments.map(x=>({date:x.date,ico:'💊',text:`Trattamento ${x.product} — ${hiveName(x.hive)}`})),
+    ...db.nuclei.map(x=>({date:x.date,ico:'🔬',text:`Nucleo formato: ${x.name}`}))
+  ].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
+  document.getElementById('dash-activity').innerHTML=acts.length
+    ?acts.map(a=>`<div class="list-row">
+        <div class="list-icon icon-forest" style="font-size:14px">${a.ico}</div>
+        <div class="list-body"><div class="list-title">${a.text}</div><div class="list-detail">${fmtDate(a.date)}</div></div>
+      </div>`).join('')
+    :'<div class="empty"><p>Nessuna attività ancora.</p></div>';
+}
+
+function renderMemo(){
+  const fStatus=document.getElementById('filter-memo-status')?.value||'';
+  const fPrio=document.getElementById('filter-memo-prio')?.value||'';
+  const fAp=document.getElementById('filter-memo-apiario')?.value||'';
+  let data=[...db.memos];
+  if(fStatus)data=data.filter(m=>m.status===fStatus);
+  if(fPrio)data=data.filter(m=>m.prio===fPrio);
+  if(fAp)data=data.filter(m=>m.apiario===fAp);
+  data.sort((a,b)=>{
+    const po={alta:0,media:1,bassa:2};
+    if(a.status!==b.status)return a.status==='open'?-1:1;
+    return (po[a.prio]||1)-(po[b.prio]||1);
+  });
+  const prioClass={alta:'prio-high',media:'prio-med',bassa:'prio-low'};
+  document.getElementById('memo-list').innerHTML=data.length
+    ?data.map(m=>`<div class="card ${prioClass[m.prio]||''} ${m.status==='done'?'memo-done':''}">
+        <div style="display:flex;align-items:flex-start;gap:.75rem;justify-content:space-between">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:4px">
+              ${prioBadge(m.prio)}
+              ${m.cat?`<span class="badge b-gray">${m.cat}</span>`:''}
+              ${m.due?`<span style="font-size:11px;color:var(--text-3)">📅 ${fmtDate(m.due)}</span>`:''}
+            </div>
+            <div class="list-title" style="font-size:14px;white-space:normal">${m.text}</div>
+            ${m.hive||m.apiario?`<div style="font-size:11px;color:var(--text-3);margin-top:4px">${m.hive?'🏡 '+hiveName(m.hive):m.apiario?'🗺 '+apiaryName(m.apiario):''}</div>`:''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+            <button class="btn btn-sm" onclick="toggleMemo('${m.id}')">${m.status==='done'?'↩ Riapri':'✓ Fatto'}</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteItem('memos','${m.id}')">Elimina</button>
+          </div>
+        </div>
+      </div>`).join('')
+    :'<div class="card"><div class="empty"><div class="empty-icon">📝</div><p>Nessun memo trovato.</p></div></div>';
+}
+
+function renderApiaries(){
+  document.getElementById('apiaries-list').innerHTML=db.apiaries.length
+    ?db.apiaries.map(a=>{
+        const nHives=db.hives.filter(h=>h.apiario===a.id).length;
+        const kg=db.harvests.filter(rv=>{const h=db.hives.find(x=>x.id===rv.hive);return h&&h.apiario===a.id}).reduce((s,b)=>s+b.qty,0);
+        return`<div class="card">
+          <div class="card-header">
+            <div><div class="card-title">🗺 ${a.name}</div><div class="card-sub">${a.loc||''}${a.altitude?' · '+a.altitude+' m':''}</div></div>
+            <div style="text-align:right;font-size:12px;color:var(--text-2)">${nHives} arnie<br>${kg.toFixed(1)} kg miele</div>
+          </div>
+          ${a.flora?`<div style="font-size:12px;color:var(--text-2);margin-bottom:.5rem">🌸 ${a.flora}</div>`:''}
+          ${a.gps?`<div style="font-size:11px;color:var(--text-3);margin-bottom:.5rem">📍 ${a.gps}</div>`:''}
+          ${a.notes?`<div style="font-size:13px;color:var(--text-2);padding:.625rem;background:var(--cream);border-radius:var(--rsm);margin-bottom:.5rem">${a.notes}</div>`:''}
+          <div class="action-row">
+            <button class="btn btn-sm" onclick="editApiario('${a.id}')">✏ Modifica</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteItem('apiaries','${a.id}')">Elimina</button>
+          </div>
+        </div>`}).join('')
+    :'<div class="card"><div class="empty"><div class="empty-icon">🗺</div><p>Nessun apiario ancora.<br>Inizia aggiungendo il tuo primo apiario!</p></div></div>';
+}
+
+function renderHives(){
+  const fAp=document.getElementById('filter-hive-apiario')?.value||'';
+  const fSt=document.getElementById('filter-hive-status')?.value||'';
+  let data=[...db.hives];
+  if(fAp)data=data.filter(h=>h.apiario===fAp);
+  if(fSt)data=data.filter(h=>h.status===fSt);
+  document.getElementById('hives-list').innerHTML=data.length
+    ?data.map(h=>`<div class="card">
+        <div class="card-header">
+          <div><div class="card-title">🐝 ${h.name} ${apiaryPill(h.apiario)}</div></div>
+          ${statusBadge(h.status)}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:12px;color:var(--text-2);margin-bottom:.625rem">
+          <span>👑 ${h.qrace||'—'} · ${qAge(h.qyear)}</span>
+          <span>📌 Provenienza: ${h.qsource||'—'}</span>
+          ${h.qcolor?`<span>🎨 ${h.qcolor.split(' ')[0]}</span>`:''}
+        </div>
+        ${h.notes?`<div style="font-size:12px;color:var(--text-2);padding:.5rem;background:var(--cream);border-radius:var(--rsm);margin-bottom:.5rem">${h.notes}</div>`:''}
+        <div class="action-row">
+          <button class="btn btn-sm" onclick="editHive('${h.id}')">✏ Modifica</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteItem('hives','${h.id}')">Elimina</button>
+        </div>
+      </div>`).join('')
+    :'<div class="card"><div class="empty"><div class="empty-icon">🏡</div><p>Nessuna arnia trovata.<br>${db.apiaries.length===0?"Crea prima un apiario.":"Aggiungi la prima arnia!"}</p></div></div>';
+}
+
+function renderNuclei(){
+  const data=[...db.nuclei].sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('nuclei-list').innerHTML=data.length
+    ?data.map(n=>`<div class="card nucleus-accent">
+        <div class="card-header">
+          <div><div class="card-title">🔬 ${n.name}</div><div class="card-sub">${fmtDate(n.date)}${n.apiario?' · '+apiaryName(n.apiario):''}</div></div>
+          ${statusBadge(n.status)}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:12px;color:var(--text-2);margin-bottom:.625rem">
+          <span>🏡 Arnia madre: ${hiveName(n.mother)}</span>
+          <span>🖼 Favi prelevati: ${n.frames||'—'}</span>
+          <span>👑 Regina: ${n.qsource||'—'}</span>
+          <span>🐝 Razza: ${n.qrace||'—'}</span>
+          <span>🍯 Scorte favi: ${n.foodframes||'—'}</span>
+        </div>
+        ${n.notes?`<div style="font-size:12px;color:var(--text-2);padding:.5rem;background:var(--cream);border-radius:var(--rsm);margin-bottom:.5rem">${n.notes}</div>`:''}
+        <div class="action-row">
+          <button class="btn btn-sm btn-danger" onclick="deleteItem('nuclei','${n.id}')">Elimina</button>
+        </div>
+      </div>`).join('')
+    :'<div class="card"><div class="empty"><div class="empty-icon">🔬</div><p>Nessun nucleo registrato.<br>I nuclei ti permettono di tracciare la formazione di nuove famiglie.</p></div></div>';
+}
+
+function renderInspections(){
+  const fAp=document.getElementById('filter-insp-apiario')?.value||'';
+  const fH=document.getElementById('filter-insp-hive')?.value||'';
+  let data=[...db.inspections];
+  if(fH)data=data.filter(i=>i.hive===fH);
+  else if(fAp){const ids=db.hives.filter(h=>h.apiario===fAp).map(h=>h.id);data=data.filter(i=>ids.includes(i.hive))}
+  data.sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('inspections-list').innerHTML=data.length
+    ?data.map(i=>{
+      const barColor=i.pop>=4&&i.brood>=4?'bar-ok':i.pop<=2||i.brood<=2?'bar-warn':'bar-honey';
+      return`<div class="card">
+        <div class="card-header"><span class="card-title">${hiveName(i.hive)} ${apiaryPill(db.hives.find(h=>h.id===i.hive)?.apiario)}</span><span class="card-sub">${fmtDate(i.date)}</span></div>
+        <div class="bar-group">
+          ${[['Famiglia',i.pop],['Covata',i.brood],['Scorte',i.food]].map(([l,v])=>`<div class="bar-item"><label>${l}</label><div class="bar-track"><div class="bar-fill ${barColor}" style="width:${v*20}%"></div></div><div class="bar-val">${v}/5</div></div>`).join('')}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:var(--text-2);margin-bottom:.5rem">
+          <span>👑 ${i.queen}</span><span>😤 ${i.temp}</span>${i.varroa?`<span>🔬 Varroa: ${parseFloat(i.varroa).toFixed(1)}%</span>`:''}
+        </div>
+        ${i.notes?`<div style="font-size:12px;color:var(--text-2);padding:.5rem;background:var(--cream);border-radius:var(--rsm)">${i.notes}</div>`:''}
+        <div class="action-row"><button class="btn btn-sm btn-danger" onclick="deleteItem('inspections','${i.id}')">Elimina</button></div>
+      </div>`}).join('')
+    :'<div class="card"><div class="empty"><div class="empty-icon">🔍</div><p>Nessuna ispezione registrata.</p></div></div>';
+}
+
+function renderHarvests(){
+  const fAp=document.getElementById('filter-harv-apiario')?.value||'';
+  let data=[...db.harvests];
+  if(fAp){const ids=db.hives.filter(h=>h.apiario===fAp).map(h=>h.id);data=data.filter(r=>ids.includes(r.hive))}
+  data.sort((a,b)=>b.date.localeCompare(a.date));
+  const tot=data.reduce((a,b)=>a+b.qty,0);
+  document.getElementById('harvests-list').innerHTML=`
+    ${data.length?`<div class="card" style="background:var(--honey-bg);border:1px solid rgba(212,134,26,.2);margin-bottom:.875rem">
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
+        <div><div class="metric-label">Totale filtrato</div><div class="metric-val">${tot.toFixed(1)}<span class="metric-unit"> kg</span></div></div>
+        <div><div class="metric-label">Raccolti</div><div class="metric-val">${data.length}</div></div>
+        ${data.length>1?`<div><div class="metric-label">Media</div><div class="metric-val">${(tot/data.length).toFixed(1)}<span class="metric-unit"> kg</span></div></div>`:''}
+      </div>
+    </div>`:''}
+    ${data.length
+      ?data.map(r=>`<div class="card">
+          <div class="card-header"><span class="card-title">🍯 ${r.qty.toFixed(1)} kg — ${r.type||'Miele'}</span><span class="card-sub">${fmtDate(r.date)}</span></div>
+          <div style="font-size:12px;color:var(--text-2);margin-bottom:.375rem">${hiveName(r.hive)} ${apiaryPill(db.hives.find(h=>h.id===r.hive)?.apiario)}${r.supers?' · '+r.supers+' melari':''}${r.humidity?' · Umidità '+parseFloat(r.humidity).toFixed(1)+'%':''}${r.dest?' · '+r.dest:''}</div>
+          ${r.notes?`<div style="font-size:12px;color:var(--text-2);padding:.5rem;background:var(--cream);border-radius:var(--rsm)">${r.notes}</div>`:''}
+          <div class="action-row"><button class="btn btn-sm btn-danger" onclick="deleteItem('harvests','${r.id}')">Elimina</button></div>
+        </div>`).join('')
+      :'<div class="card"><div class="empty"><div class="empty-icon">🍯</div><p>Nessun raccolto registrato.</p></div></div>'}`;
+}
+
+function renderTreatments(){
+  const fAp=document.getElementById('filter-treat-apiario')?.value||'';
+  let data=[...db.treatments];
+  if(fAp){const ids=db.hives.filter(h=>h.apiario===fAp).map(h=>h.id);data=data.filter(t=>ids.includes(t.hive)||t.hive===`__ap__${fAp}`)}
+  data.sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('treatments-list').innerHTML=data.length
+    ?data.map(t=>`<div class="card">
+        <div class="card-header"><span class="card-title">💊 ${t.product}</span><span class="badge b-warn">${t.type}</span></div>
+        <div style="font-size:12px;color:var(--text-2);margin-bottom:.375rem">${hiveName(t.hive)} · ${fmtDate(t.date)}${t.end?' → '+fmtDate(t.end):''}${t.dose?' · '+t.dose:''}</div>
+        ${t.notes?`<div style="font-size:12px;color:var(--text-2);padding:.5rem;background:var(--cream);border-radius:var(--rsm)">${t.notes}</div>`:''}
+        <div class="action-row"><button class="btn btn-sm btn-danger" onclick="deleteItem('treatments','${t.id}')">Elimina</button></div>
+      </div>`).join('')
+    :'<div class="card"><div class="empty"><div class="empty-icon">💊</div><p>Nessun trattamento registrato.</p></div></div>';
+}
+
+// ══ EXPORT ════════════════════════════════════════════════════════
+function exportData(){
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`alveo_backup_${today()}.json`;a.click();
+}
+function importData(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(!d.hives&&!d.apiaries)throw new Error('File non valido');
+      if(confirm(`Importare i dati? I dati attuali saranno sostituiti.`)){
+        db={apiaries:[],hives:[],nuclei:[],inspections:[],harvests:[],treatments:[],memos:[],...d};
+        save();render();populateAllFilters();alert('Importazione completata!');
+      }
+    }catch(err){alert('Errore: '+err.message)}
+  };
+  r.readAsText(f);e.target.value='';
+}
+function exportCSV(){
+  const rows=[['Tipo','Data','Apiario','Arnia/Soggetto','Dettaglio','Note']];
+  db.inspections.forEach(i=>{const h=db.hives.find(x=>x.id===i.hive);rows.push(['Ispezione',i.date,apiaryName(h?.apiario),hiveName(i.hive),`Pop:${i.pop} Cov:${i.brood} Sco:${i.food} Regina:${i.queen} Var:${i.varroa||''}`,i.notes])});
+  db.harvests.forEach(r=>{const h=db.hives.find(x=>x.id===r.hive);rows.push(['Raccolto',r.date,apiaryName(h?.apiario),hiveName(r.hive),`${r.qty}kg ${r.type} Um:${r.humidity||''}%`,r.notes])});
+  db.treatments.forEach(t=>rows.push(['Trattamento',t.date,'',hiveName(t.hive),`${t.product} (${t.type}) ${t.dose}`,t.notes]));
+  db.nuclei.forEach(n=>rows.push(['Nucleo',n.date,apiaryName(n.apiario),n.name,`Madre:${hiveName(n.mother)} Regina:${n.qsource} Favi:${n.frames}`,n.notes]));
+  db.memos.forEach(m=>rows.push(['Memo',m.created,'',m.hive?hiveName(m.hive):apiaryName(m.apiario),`[${m.prio}] ${m.status} ${m.cat}`,m.text]));
+  const csv=rows.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`alveo_${today()}.csv`;a.click();
+}
+function clearData(){
+  if(confirm('Cancellare TUTTI i dati? Operazione irreversibile.')){
+    db={apiaries:[],hives:[],nuclei:[],inspections:[],harvests:[],treatments:[],memos:[]};
+    save();render();
+  }
+}
+
+// ══ INIT ══════════════════════════════════════════════════════════
+populateAllFilters();
+render();
+</script>
+</body>
+</html>
